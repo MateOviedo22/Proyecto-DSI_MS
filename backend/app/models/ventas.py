@@ -1,5 +1,3 @@
-"""Clientes, pedidos, ventas, facturas, seriales, devoluciones y garantías."""
-
 from datetime import datetime
 from decimal import Decimal
 
