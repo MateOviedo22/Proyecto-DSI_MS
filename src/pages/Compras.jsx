@@ -5,6 +5,9 @@
 // RF-25/26 (lotes), RF-27/29 (números de serie y trazabilidad).
 import { useState, Fragment } from 'react';
 import { useData } from '../context/DataContext';
+import PageHeader from '../components/PageHeader';
+import EmptyState from '../components/EmptyState';
+import { moneda, fecha, fechaHora } from '../utils/formato';
 
 const PRIORIDADES = ['alta', 'media', 'baja'];
 
@@ -38,10 +41,10 @@ export default function Compras() {
   };
 
   return (
-    <div className="container-fluid p-4">
-      <h2 className="mb-3">Compras y Recepción de Mercadería</h2>
+    <div className="container-fluid">
+      <PageHeader titulo="Compras y recepción" descripcion="Planifica reabastecimientos, registra órdenes de compra y compara lo comprado contra lo recibido." />
 
-      <ul className="nav nav-tabs mb-3">
+      <ul className="nav nav-tabs mb-4">
         {[
           ['pendientes', 'Pendientes de compra'],
           ['ordenes', 'Órdenes de compra'],
@@ -117,7 +120,7 @@ function PendientesCompraTab({ productos, pendientesCompra, crearPendienteCompra
 
   return (
     <div>
-      <form onSubmit={agregar} className="row g-2 align-items-end bg-light p-3 rounded shadow-sm mb-3">
+      <form onSubmit={agregar} className="row g-2 align-items-end panel mb-3 mx-0">
         <div className="col-md-4">
           <label className="form-label mb-0">Producto</label>
           <select className="form-select" value={productoId} onChange={(e) => setProductoId(e.target.value)}>
@@ -163,7 +166,7 @@ function PendientesCompraTab({ productos, pendientesCompra, crearPendienteCompra
                     {p.prioridad}
                   </span>
                 </td>
-                <td>{new Date(p.fechaRegistro).toLocaleDateString('es-NI')}</td>
+                <td>{fecha(p.fechaRegistro)}</td>
                 <td>{p.atendido ? 'Atendido' : 'Pendiente'}</td>
                 <td className="text-end">
                   {!p.atendido && (
@@ -178,7 +181,7 @@ function PendientesCompraTab({ productos, pendientesCompra, crearPendienteCompra
               </tr>
             ))}
             {lista.length === 0 && (
-              <tr><td colSpan={6} className="text-center text-muted py-4">No hay productos pendientes de compra.</td></tr>
+              <tr><td colSpan={6}><EmptyState icono="bi-cart-check" titulo="No hay productos pendientes de compra" /></td></tr>
             )}
           </tbody>
         </table>
@@ -233,7 +236,7 @@ function OrdenesCompraTab({ productos, proveedores, compras, crearCompra, recibi
       </div>
 
       {mostrarForm && (
-        <form onSubmit={guardarCompra} className="bg-light p-3 rounded shadow-sm mb-3">
+        <form onSubmit={guardarCompra} className="panel mb-3">
           <div className="row g-2 mb-2">
             <div className="col-md-6">
               <label className="form-label mb-0">Proveedor</label>
@@ -248,7 +251,7 @@ function OrdenesCompraTab({ productos, proveedores, compras, crearCompra, recibi
             </div>
           </div>
 
-          <strong>Productos a comprar</strong>
+          <h5 className="mt-3 mb-1">Productos a comprar</h5>
           {items.map((it, i) => {
             const prod = productos.find((p) => p.id === it.productoId);
             return (
@@ -299,7 +302,7 @@ function OrdenesCompraTab({ productos, proveedores, compras, crearCompra, recibi
       <div className="table-responsive bg-white rounded shadow-sm">
         <table className="table table-hover align-middle mb-0">
           <thead className="table-light">
-            <tr><th></th><th>Proveedor</th><th>Fecha</th><th>Líneas</th><th>Estado</th><th className="text-end">Acciones</th></tr>
+            <tr><th></th><th>Proveedor</th><th>Fecha</th><th>Líneas</th><th className="text-end">Total</th><th>Estado</th><th className="text-end">Acciones</th></tr>
           </thead>
           <tbody>
             {lista.map((c) => (
@@ -311,8 +314,9 @@ function OrdenesCompraTab({ productos, proveedores, compras, crearCompra, recibi
                     </button>
                   </td>
                   <td>{proveedorNombre(c.proveedorId)}</td>
-                  <td>{new Date(c.fecha).toLocaleDateString('es-NI')}</td>
+                  <td>{fecha(c.fecha)}</td>
                   <td>{c.items.length}</td>
+                  <td className="text-end">{moneda(c.items.reduce((t, i) => t + i.cantidadComprada * i.costoUnitario, 0) + Number(c.costoEnvio || 0))}</td>
                   <td><EstadoBadge estado={c.estado} /></td>
                   <td className="text-end">
                     <button className="btn btn-sm btn-outline-secondary" onClick={() => setExpandida(expandida === c.id ? null : c.id)}>
@@ -323,7 +327,7 @@ function OrdenesCompraTab({ productos, proveedores, compras, crearCompra, recibi
                 {expandida === c.id && (
                   <tr>
                     <td></td>
-                    <td colSpan={5}>
+                    <td colSpan={6}>
                       {c.estado === 'pendiente'
                         ? <FormularioRecepcion compra={c} productos={productos} productoNombre={productoNombre} varianteInfo={varianteInfo} recibirCompra={recibirCompra} onListo={() => setExpandida(null)} />
                         : <DetalleRecepcion compra={c} productoNombre={productoNombre} varianteInfo={varianteInfo} />}
@@ -333,7 +337,7 @@ function OrdenesCompraTab({ productos, proveedores, compras, crearCompra, recibi
               </Fragment>
             ))}
             {lista.length === 0 && (
-              <tr><td colSpan={6} className="text-center text-muted py-4">No hay órdenes de compra registradas.</td></tr>
+              <tr><td colSpan={7}><EmptyState icono="bi-bag" titulo="No hay órdenes de compra registradas" /></td></tr>
             )}
           </tbody>
         </table>
@@ -371,16 +375,16 @@ function FormularioRecepcion({ compra, productos, productoNombre, varianteInfo, 
 
   return (
     <div className="bg-light p-3 rounded">
-      <strong>Comparar comprado vs. recibido</strong>
+      <h5 className="mb-0">Comparar comprado vs. recibido</h5>
       {compra.items.map((item) => {
         const producto = productos.find((p) => p.id === item.productoId);
         const d = datos.find((x) => x.itemId === item.id);
         const faltantePreview = Math.max(0, Number(item.cantidadComprada) - Number(d.cantidadRecibida || 0));
         return (
-          <div className="border rounded p-2 mt-2 bg-white" key={item.id}>
+          <div className="border p-3 mt-2 bg-white" key={item.id}>
             <div className="fw-semibold">
               {productoNombre(item.productoId)}{varianteInfo(item.productoId, item.varianteId)}
-              <span className="text-muted"> — comprado: {item.cantidadComprada}</span>
+              <span className="text-muted"> — comprado: {item.cantidadComprada} × {moneda(item.costoUnitario)}</span>
             </div>
             <div className="row g-2 mt-1">
               <div className="col-md-2">
@@ -417,10 +421,10 @@ function DetalleRecepcion({ compra, productoNombre, varianteInfo }) {
   return (
     <div className="bg-light p-3 rounded">
       <div className="text-muted small mb-2">
-        Recibida el {compra.fechaRecepcion ? new Date(compra.fechaRecepcion).toLocaleString('es-NI') : '—'}
+        Recibida el {fechaHora(compra.fechaRecepcion)} · envío {moneda(compra.costoEnvio)}
       </div>
       <table className="table table-sm mb-0 bg-white">
-        <thead><tr><th>Producto</th><th>Comprado</th><th>Recibido</th><th>Faltante</th><th>Lote</th><th>Series</th><th>Incidencia</th></tr></thead>
+        <thead><tr><th>Producto</th><th>Comprado</th><th>Recibido</th><th>Faltante</th><th>Costo unit.</th><th>Lote</th><th>Series</th><th>Incidencia</th></tr></thead>
         <tbody>
           {compra.items.map((item) => (
             <tr key={item.id}>
@@ -428,6 +432,7 @@ function DetalleRecepcion({ compra, productoNombre, varianteInfo }) {
               <td>{item.cantidadComprada}</td>
               <td>{item.cantidadRecibida}</td>
               <td>{item.faltante > 0 ? <span className="text-danger fw-semibold">{item.faltante}</span> : 0}</td>
+              <td>{moneda(item.costoUnitario)}</td>
               <td>{item.lote || '—'}</td>
               <td>{item.numerosSerie?.length ? item.numerosSerie.join(', ') : '—'}</td>
               <td>{item.incidencia || '—'}</td>
@@ -440,33 +445,18 @@ function DetalleRecepcion({ compra, productoNombre, varianteInfo }) {
 }
 
 // =====================================================================
-// Consulta por lote y por número de serie (RF-26, RF-29) + Garantías (RF-36 a RF-38)
+// Consulta por lote y por número de serie (RF-26, RF-29)
 // =====================================================================
 function ConsultaTab({ buscarPorLote, buscarPorNumeroSerie, productoNombre }) {
-  const { ventas, registrarGarantia } = useData();
   const [lote, setLote] = useState('');
   const [resultadosLote, setResultadosLote] = useState(null);
   const [serie, setSerie] = useState('');
   const [resultadoSerie, setResultadoSerie] = useState(undefined);
-  const [descripcionGarantia, setDescripcionGarantia] = useState('');
-  const [mensajeGarantia, setMensajeGarantia] = useState('');
-
-  const ventaDeLaSerie = resultadoSerie?.ventaId ? ventas.find((v) => v.id === resultadoSerie.ventaId) : null;
-  const diasDesdeVenta = ventaDeLaSerie ? Math.floor((Date.now() - new Date(ventaDeLaSerie.fecha).getTime()) / (24 * 60 * 60 * 1000)) : null;
-  const dentroDeGarantia = diasDesdeVenta !== null && diasDesdeVenta <= 15;
-
-  const confirmarGarantia = () => {
-    const res = registrarGarantia({ numeroSerieId: resultadoSerie.id, descripcion: descripcionGarantia });
-    setMensajeGarantia(res.ok
-      ? `Reclamo registrado. ${res.garantia.dentroDePeriodo ? 'Está dentro del período de garantía (15 días).' : 'Está fuera del período de garantía (15 días).'}`
-      : res.error);
-    setDescripcionGarantia('');
-  };
 
   return (
     <div className="row g-4">
       <div className="col-md-6">
-        <h5>Buscar por lote</h5>
+        <h5 className="mb-2">Buscar por lote</h5>
         <div className="input-group mb-2">
           <input className="form-control" placeholder="Código de lote" value={lote} onChange={(e) => setLote(e.target.value)} />
           <button className="btn btn-outline-primary" onClick={() => setResultadosLote(buscarPorLote(lote))}>Buscar</button>
@@ -477,7 +467,7 @@ function ConsultaTab({ buscarPorLote, buscarPorNumeroSerie, productoNombre }) {
               {resultadosLote.map((r, i) => (
                 <li className="list-group-item" key={i}>
                   {productoNombre(r.productoId)} — recibido: {r.cantidadRecibida}
-                  {r.fechaRecepcion && ` (${new Date(r.fechaRecepcion).toLocaleDateString('es-NI')})`}
+                  {r.fechaRecepcion && ` (${fecha(r.fechaRecepcion)})`}
                 </li>
               ))}
             </ul>
@@ -486,42 +476,21 @@ function ConsultaTab({ buscarPorLote, buscarPorNumeroSerie, productoNombre }) {
       </div>
 
       <div className="col-md-6">
-        <h5>Buscar por número de serie / garantía</h5>
+        <h5 className="mb-2">Buscar por número de serie</h5>
         <div className="input-group mb-2">
           <input className="form-control" placeholder="Número de serie" value={serie} onChange={(e) => setSerie(e.target.value)} />
-          <button className="btn btn-outline-primary" onClick={() => { setResultadoSerie(buscarPorNumeroSerie(serie)); setMensajeGarantia(''); }}>Buscar</button>
+          <button className="btn btn-outline-primary" onClick={() => setResultadoSerie(buscarPorNumeroSerie(serie))}>Buscar</button>
         </div>
         {resultadoSerie !== undefined && (
           resultadoSerie === null ? <div className="text-muted">No se encontró ese número de serie.</div> : (
-            <div>
-              <ul className="list-group mb-2">
-                <li className="list-group-item"><strong>Producto:</strong> {productoNombre(resultadoSerie.productoId)}</li>
-                <li className="list-group-item"><strong>Lote:</strong> {resultadoSerie.lote || '—'}</li>
-                <li className="list-group-item"><strong>Ingresó:</strong> {new Date(resultadoSerie.fechaIngreso).toLocaleDateString('es-NI')}</li>
-                <li className="list-group-item">
-                  <strong>Vendido:</strong>{' '}
-                  {ventaDeLaSerie ? (
-                    <>
-                      Sí, en {ventaDeLaSerie.numeroFactura} el {new Date(ventaDeLaSerie.fecha).toLocaleDateString('es-NI')}{' '}
-                      — <span className={dentroDeGarantia ? 'text-success' : 'text-danger'}>
-                        {dentroDeGarantia ? `dentro de garantía (día ${diasDesdeVenta} de 15)` : `fuera de garantía (${diasDesdeVenta} días desde la venta)`}
-                      </span>
-                    </>
-                  ) : 'No vendido todavía'}
-                </li>
-              </ul>
-              {ventaDeLaSerie && (
-                <div className="bg-light p-2 rounded">
-                  <label className="form-label mb-0 small">Registrar reclamo de garantía</label>
-                  <div className="input-group">
-                    <input className="form-control form-control-sm" placeholder="Descripción del problema"
-                      value={descripcionGarantia} onChange={(e) => setDescripcionGarantia(e.target.value)} />
-                    <button className="btn btn-sm btn-outline-danger" onClick={confirmarGarantia}>Registrar</button>
-                  </div>
-                  {mensajeGarantia && <div className="small mt-1">{mensajeGarantia}</div>}
-                </div>
-              )}
-            </div>
+            <ul className="list-group">
+              <li className="list-group-item"><strong>Producto:</strong> {productoNombre(resultadoSerie.productoId)}</li>
+              <li className="list-group-item"><strong>Lote:</strong> {resultadoSerie.lote || '—'}</li>
+              <li className="list-group-item"><strong>Ingresó:</strong> {fecha(resultadoSerie.fechaIngreso)}</li>
+              <li className="list-group-item">
+                <strong>Vendido:</strong> {resultadoSerie.ventaId ? `Sí (${fecha(resultadoSerie.fechaVenta)})` : 'No vendido todavía'}
+              </li>
+            </ul>
           )
         )}
       </div>

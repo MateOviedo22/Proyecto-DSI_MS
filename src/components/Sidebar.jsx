@@ -1,53 +1,76 @@
-import { Link, useLocation } from 'react-router-dom';
-import { useT } from '../context/LanguageContext';
-import './Sidebar.css';
+// src/components/Sidebar.jsx
+import { NavLink } from 'react-router-dom';
+import { useData } from '../context/DataContext';
+import Marca from './Marca';
 
-export default function Sidebar({ isCollapsed, toggleSidebar, rolActual }) {
-  const location = useLocation();
-  const t = useT();
+const GRUPOS = [
+  { titulo: null, items: [{ label: 'Inicio', path: '/', icon: 'bi-grid-1x2-fill', modulo: 'inicio', fin: true }] },
+  {
+    titulo: 'Inventario',
+    items: [
+      { label: 'Catálogo de productos', path: '/productos', icon: 'bi-box-seam', modulo: 'productos' },
+      { label: 'Movimientos', path: '/ingresar-inventario', icon: 'bi-arrow-left-right', modulo: 'inventario' },
+      { label: 'Proveedores', path: '/proveedores', icon: 'bi-truck', modulo: 'proveedores' },
+      { label: 'Compras y recepción', path: '/compras', icon: 'bi-bag-check', modulo: 'compras' },
+    ],
+  },
+  {
+    titulo: 'Comercial',
+    items: [
+      { label: 'Ventas y facturación', path: '/registrar-venta', icon: 'bi-receipt', modulo: 'ventas' },
+      { label: 'Garantías y devoluciones', path: '/garantias', icon: 'bi-shield-check', modulo: 'garantias' },
+    ],
+  },
+  { titulo: 'Análisis', items: [{ label: 'Reportes', path: '/reportes', icon: 'bi-bar-chart-line', modulo: 'reportes' }] },
+  {
+    titulo: 'Administración',
+    items: [
+      { label: 'Usuarios y roles', path: '/usuarios', icon: 'bi-people', modulo: 'usuarios' },
+      { label: 'Configuración', path: '/configuracion', icon: 'bi-gear', modulo: 'configuracion' },
+    ],
+  },
+];
 
-  const navItems = [
-    { label: t('inicio'), path: '/', icon: 'bi-house-door-fill' },
-    { label: t('catalogoProductos'), path: '/productos', icon: 'bi-box-seam' },
-    { label: t('proveedores'), path: '/proveedores', icon: 'bi-truck' },
-    { label: t('comprasRecepcion'), path: '/compras', icon: 'bi-bag-check' },
-    { label: t('movimientosInventario'), path: '/ingresar-inventario', icon: 'bi-box-arrow-in-down' },
-    { label: t('ventasFacturacion'), path: '/registrar-venta', icon: 'bi-receipt' },
-    { label: t('reportes'), path: '/reportes', icon: 'bi-bar-chart-line-fill' },
-    // Solo el rol Administrador ve la gestión de usuarios (RNF-13, control de acceso).
-    ...(rolActual === 'Administrador' ? [{ label: t('usuariosRoles'), path: '/usuarios', icon: 'bi-people-fill' }] : []),
-    { label: t('configuracion'), path: '/configuracion', icon: 'bi-gear-fill' },
-  ];
+export default function Sidebar({ colapsado, movilAbierto, onCerrarMovil }) {
+  const { tienePermiso, config } = useData();
 
   return (
-    <div
-      className="bg-body-tertiary vh-100 border-end shadow-sm transition-all"
-      style={{
-        width: isCollapsed ? '60px' : '220px',
-        position: 'fixed',
-        overflowX: 'hidden',
-        transition: 'width 0.3s ease',
-      }}
-    >
+    <>
+      {movilAbierto && <div className="sidebar-velo" onClick={onCerrarMovil} aria-hidden="true"></div>}
+      <aside className={`sidebar ${colapsado ? 'es-colapsado' : ''} ${movilAbierto ? 'es-movil-abierto' : ''}`} aria-label="Navegación principal">
+        <div className="sidebar-marca">
+          <Marca />
+          <div className="sidebar-marca-texto">
+            <strong>{config.nombreEmpresa || 'MotoMan'}</strong>
+            <span>Inventario y ventas</span>
+          </div>
+        </div>
 
-      <ul className="nav flex-column p-3">
-        {navItems.map((item, index) => (
-          <li className="nav-item mb-2" key={index}>
-            <Link
-              to={item.path}
-              className={`nav-link d-flex align-items-center ${
-                location.pathname === item.path
-                  ? 'active text-primary fw-bold'
-                  : ''
-              }`}
-              title={isCollapsed ? item.label : ''}
-            >
-              <i className={`bi ${item.icon} me-2 fs-5`}></i>
-              {!isCollapsed && <span>{item.label}</span>}
-            </Link>
-          </li>
-        ))}
-      </ul>
-    </div>
+        <nav className="sidebar-nav">
+          {GRUPOS.map((grupo, gi) => {
+            const visibles = grupo.items.filter((i) => tienePermiso(i.modulo));
+            if (visibles.length === 0) return null;
+            return (
+              <div className="sidebar-grupo" key={gi}>
+                {grupo.titulo && <div className="sidebar-grupo-titulo">{grupo.titulo}</div>}
+                {visibles.map((item) => (
+                  <NavLink
+                    key={item.path}
+                    to={item.path}
+                    end={item.fin}
+                    className={({ isActive }) => `sidebar-link ${isActive ? 'activo' : ''}`}
+                    title={colapsado ? item.label : undefined}
+                    onClick={onCerrarMovil}
+                  >
+                    <i className={`bi ${item.icon}`} aria-hidden="true"></i>
+                    <span>{item.label}</span>
+                  </NavLink>
+                ))}
+              </div>
+            );
+          })}
+        </nav>
+      </aside>
+    </>
   );
 }
