@@ -1,14 +1,14 @@
 // src/App.js
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { useState, useEffect } from 'react';
+import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
+
+import { ThemeProvider } from './context/ThemeContext';
+import { DataProvider, useData } from './context/DataContext';
+import { UiProvider } from './context/UiContext';
 
 import Sidebar from './components/Sidebar';
-import 'bootstrap-icons/font/bootstrap-icons.css';
-import 'bootstrap/dist/css/bootstrap.min.css';
-
-import { DataProvider, useData } from './context/DataContext';
-import { ThemeProvider } from './context/ThemeContext';
-import { LanguageProvider, useT } from './context/LanguageContext';
+import Topbar from './components/Topbar';
+import EmptyState from './components/EmptyState';
 
 import Home from './pages/Home';
 import Productos from './pages/Productos';
@@ -16,40 +16,56 @@ import RegistroProducto from './pages/RegistroProducto';
 import Proveedores from './pages/Proveedores';
 import Compras from './pages/Compras';
 import IngresoInventario from './pages/IngresoInventario';
-import Ventas from './pages/Ventas';
-import Reportes from './pages/Reportes';
+import RegistrarVenta from './pages/RegistrarVenta';
+import GarantiasDevoluciones from './pages/GarantiasDevoluciones';
+import GenerarReporte from './pages/GenerarReporte';
 import Usuarios from './pages/Usuarios';
 import Configuracion from './pages/Configuracion';
 import Login from './pages/Login';
 
-function App() {
+const TITULOS = {
+  '/': 'Inicio',
+  '/productos': 'Catálogo de productos',
+  '/registrar-producto': 'Registrar producto',
+  '/proveedores': 'Proveedores',
+  '/compras': 'Compras y recepción',
+  '/ingresar-inventario': 'Movimientos de inventario',
+  '/registrar-venta': 'Ventas y facturación',
+  '/garantias': 'Garantías y devoluciones',
+  '/reportes': 'Reportes',
+  '/usuarios': 'Usuarios y roles',
+  '/configuracion': 'Configuración',
+};
+
+// Control de acceso por permisos (RNF "Control de acceso por usuario")
+function Protegida({ modulo, children }) {
+  const { tienePermiso } = useData();
+  if (tienePermiso(modulo)) return children;
   return (
-    <Router>
-      <ThemeProvider>
-        <LanguageProvider>
-          <DataProvider>
-            <AppContent />
-          </DataProvider>
-        </LanguageProvider>
-      </ThemeProvider>
-    </Router>
+    <EmptyState icono="bi-lock" titulo="No tienes acceso a esta sección">
+      Tu rol no incluye este módulo. Si lo necesitas, pide a un administrador que ajuste tus permisos.
+    </EmptyState>
   );
 }
 
-function AppContent() {
+function Aplicacion() {
   const { usuarioActual, cerrarSesion } = useData();
-  const t = useT();
-  const [sidebarAbierto, setSidebarAbierto] = useState(true);
+  const location = useLocation();
+  const [colapsado, setColapsado] = useState(() => localStorage.getItem('motoman_sidebar') === 'colapsado');
+  const [movilAbierto, setMovilAbierto] = useState(false);
 
-  useEffect(() => {
-    const sidebarState = localStorage.getItem('sidebarMotoMan');
-    if (sidebarState !== null) setSidebarAbierto(sidebarState === 'true');
-  }, []);
+  useEffect(() => setMovilAbierto(false), [location.pathname]);
+  useEffect(() => window.scrollTo(0, 0), [location.pathname]);
 
-  const toggleSidebar = () => {
-    const nuevoEstado = !sidebarAbierto;
-    setSidebarAbierto(nuevoEstado);
-    localStorage.setItem('sidebarMotoMan', nuevoEstado);
+  const alternarMenu = () => {
+    if (window.matchMedia('(max-width: 991.98px)').matches) {
+      setMovilAbierto((v) => !v);
+    } else {
+      setColapsado((v) => {
+        localStorage.setItem('motoman_sidebar', v ? 'abierto' : 'colapsado');
+        return !v;
+      });
+    }
   };
 
   if (!usuarioActual) {
@@ -61,65 +77,47 @@ function AppContent() {
     );
   }
 
-  return (
-    <div className="d-flex">
-      <Sidebar isCollapsed={!sidebarAbierto} toggleSidebar={toggleSidebar} rolActual={usuarioActual.rol} />
-      <div
-        className="flex-grow-1"
-        style={{
-          marginLeft: sidebarAbierto ? '220px' : '60px',
-          transition: 'margin-left 0.3s',
-          minHeight: '100vh',
-        }}
-      >
-        {/* Navbar superior */}
-        <div className="p-3 border-bottom bg-body d-flex justify-content-between align-items-center">
-          <div className="d-flex align-items-center gap-2">
-            <button className="btn btn-sm btn-outline-secondary" onClick={toggleSidebar} title={sidebarAbierto ? 'Ocultar menú' : 'Mostrar menú'}>
-              <i className="bi bi-list fs-5"></i>
-            </button>
-            <h4 className="mb-0">MotoMan</h4>
-          </div>
-          <div className="d-flex align-items-center gap-3">
-            <span className="text-muted small">{usuarioActual.nombreCompleto || usuarioActual.nombreUsuario} · {usuarioActual.rol}</span>
-            <button className="btn btn-outline-danger btn-sm" onClick={cerrarSesion}>
-              {t('cerrarSesion')}
-            </button>
-          </div>
-        </div>
+  const titulo = TITULOS[location.pathname] || (location.pathname.startsWith('/productos/editar') ? 'Editar producto' : 'MotoMan');
 
-        {/* RUTAS del contenido privado */}
-        <div className="p-4">
+  return (
+    <div className={`app-shell ${colapsado ? 'sidebar-colapsado' : ''}`}>
+      <Sidebar colapsado={colapsado} movilAbierto={movilAbierto} onCerrarMovil={() => setMovilAbierto(false)} />
+      <div className="app-columna">
+        <Topbar onMenu={alternarMenu} onCerrarSesion={cerrarSesion} titulo={titulo} />
+        <main className="app-main" id="contenido">
           <Routes>
-            <Route path="/" element={<Home />} />
-            <Route path="/productos" element={<Productos />} />
-            <Route path="/registrar-producto" element={<RegistroProducto />} />
-            <Route path="/productos/editar/:id" element={<RegistroProducto />} />
-            <Route path="/proveedores" element={<Proveedores />} />
-            <Route path="/compras" element={<Compras />} />
-            <Route path="/ingresar-inventario" element={<IngresoInventario />} />
-            <Route path="/registrar-venta" element={<Ventas />} />
-            <Route path="/reportes" element={<Reportes />} />
-            <Route
-              path="/usuarios"
-              element={usuarioActual.rol === 'Administrador' ? <Usuarios /> : <AccesoRestringido />}
-            />
-            <Route path="/configuracion" element={<Configuracion />} />
-            <Route path="*" element={<Navigate to="/" />} />
+            <Route path="/" element={<Protegida modulo="inicio"><Home /></Protegida>} />
+            <Route path="/productos" element={<Protegida modulo="productos"><Productos /></Protegida>} />
+            <Route path="/registrar-producto" element={<Protegida modulo="productos_gestion"><RegistroProducto /></Protegida>} />
+            <Route path="/productos/editar/:id" element={<Protegida modulo="productos_gestion"><RegistroProducto /></Protegida>} />
+            <Route path="/proveedores" element={<Protegida modulo="proveedores"><Proveedores /></Protegida>} />
+            <Route path="/compras" element={<Protegida modulo="compras"><Compras /></Protegida>} />
+            <Route path="/ingresar-inventario" element={<Protegida modulo="inventario"><IngresoInventario /></Protegida>} />
+            <Route path="/registrar-venta" element={<Protegida modulo="ventas"><RegistrarVenta /></Protegida>} />
+            <Route path="/garantias" element={<Protegida modulo="garantias"><GarantiasDevoluciones /></Protegida>} />
+            <Route path="/reportes" element={<Protegida modulo="reportes"><GenerarReporte /></Protegida>} />
+            <Route path="/usuarios" element={<Protegida modulo="usuarios"><Usuarios /></Protegida>} />
+            <Route path="/configuracion" element={<Protegida modulo="configuracion"><Configuracion /></Protegida>} />
+            <Route path="/login" element={<Navigate to="/" replace />} />
+            <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
-        </div>
+        </main>
       </div>
     </div>
   );
 }
 
-function AccesoRestringido() {
-  const t = useT();
+export default function App() {
   return (
-    <div className="alert alert-warning">
-      <i className="bi bi-shield-lock me-2"></i>{t('accesoRestringido')}
-    </div>
+    <ThemeProvider>
+      <DataProvider>
+        <UiProvider>
+          <Router>
+            <a href="#contenido" className="saltar-contenido">Saltar al contenido</a>
+            <Aplicacion />
+          </Router>
+        </UiProvider>
+      </DataProvider>
+    </ThemeProvider>
   );
 }
-
-export default App;
