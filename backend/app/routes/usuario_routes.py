@@ -1,5 +1,5 @@
-
 from flask import Blueprint, jsonify, request
+from flask_jwt_extended import jwt_required
 
 from app.services.usuario_service import (
     crear_usuario,
@@ -32,6 +32,7 @@ def usuario_a_dict(usuario):
 
 
 @usuario_bp.route("", methods=["POST"])
+@jwt_required()
 def registrar_usuario():
     datos = request.get_json(silent=True)
 
@@ -91,6 +92,7 @@ def registrar_usuario():
 
 
 @usuario_bp.route("", methods=["GET"])
+@jwt_required()
 def obtener_usuarios():
     username = request.args.get("username")
 
@@ -111,6 +113,7 @@ def obtener_usuarios():
 
 
 @usuario_bp.route("/<int:usuario_id>", methods=["GET"])
+@jwt_required()
 def consultar_usuario(usuario_id):
     usuario = obtener_usuario(usuario_id)
 
@@ -121,6 +124,7 @@ def consultar_usuario(usuario_id):
 
 
 @usuario_bp.route("/<int:usuario_id>", methods=["PATCH"])
+@jwt_required()
 def modificar_usuario(usuario_id):
     datos = request.get_json(silent=True)
 
@@ -173,6 +177,7 @@ def modificar_usuario(usuario_id):
 
 
 @usuario_bp.route("/<int:usuario_id>/contrasena", methods=["PATCH"])
+@jwt_required()
 def modificar_contrasena(usuario_id):
     datos = request.get_json(silent=True)
 
@@ -210,6 +215,7 @@ def modificar_contrasena(usuario_id):
 
 
 @usuario_bp.route("/<int:usuario_id>/desactivar", methods=["PATCH"])
+@jwt_required()
 def desactivar(usuario_id):
     try:
         usuario = desactivar_usuario(usuario_id)
@@ -224,6 +230,7 @@ def desactivar(usuario_id):
 
 
 @usuario_bp.route("/<int:usuario_id>/activar", methods=["PATCH"])
+@jwt_required()
 def activar(usuario_id):
     try:
         usuario = activar_usuario(usuario_id)

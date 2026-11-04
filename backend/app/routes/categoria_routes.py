@@ -1,4 +1,5 @@
 from flask import Blueprint, jsonify, request
+from flask_jwt_extended import jwt_required
 
 from app.services.categoria_service import (
     crear_categoria,
@@ -27,6 +28,7 @@ def categoria_a_dict(categoria):
 
 
 @categoria_bp.route("", methods=["POST"])
+@jwt_required()
 def registrar_categoria():
     datos = request.get_json(silent=True)
 
@@ -54,6 +56,7 @@ def registrar_categoria():
 
 
 @categoria_bp.route("", methods=["GET"])
+@jwt_required()
 def obtener_categorias():
     nombre = request.args.get("nombre")
 
@@ -69,6 +72,7 @@ def obtener_categorias():
 
 
 @categoria_bp.route("/<int:categoria_id>", methods=["GET"])
+@jwt_required()
 def consultar_categoria(categoria_id):
     categoria = obtener_categoria(categoria_id)
 
@@ -79,6 +83,7 @@ def consultar_categoria(categoria_id):
 
 
 @categoria_bp.route("/<int:categoria_id>", methods=["PATCH"])
+@jwt_required()
 def modificar_categoria(categoria_id):
     datos = request.get_json(silent=True)
 
@@ -115,10 +120,13 @@ def modificar_categoria(categoria_id):
         }), 200
 
     except ValueError as error:
-        return jsonify({"error": str(error)}), 404 if "no existe" in str(error).lower() else 400
+        return jsonify({"error": str(error)}), (
+            404 if "no existe" in str(error).lower() else 400
+        )
 
 
 @categoria_bp.route("/<int:categoria_id>/desactivar", methods=["PATCH"])
+@jwt_required()
 def desactivar(categoria_id):
     try:
         categoria = desactivar_categoria(categoria_id)
@@ -133,6 +141,7 @@ def desactivar(categoria_id):
 
 
 @categoria_bp.route("/<int:categoria_id>/activar", methods=["PATCH"])
+@jwt_required()
 def activar(categoria_id):
     try:
         categoria = activar_categoria(categoria_id)

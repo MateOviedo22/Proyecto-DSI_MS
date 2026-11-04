@@ -1,7 +1,7 @@
-
 from datetime import date
 
 from flask import Blueprint, jsonify, request
+from flask_jwt_extended import jwt_required
 
 from app.services.empleado_service import (
     crear_empleado,
@@ -59,6 +59,7 @@ def convertir_fecha(valor):
 
 
 @empleado_bp.route("", methods=["POST"])
+@jwt_required()
 def registrar_empleado():
     datos = request.get_json(silent=True)
 
@@ -103,6 +104,7 @@ def registrar_empleado():
 
 
 @empleado_bp.route("", methods=["GET"])
+@jwt_required()
 def obtener_empleados():
     termino = request.args.get("buscar")
     solo_activos_param = request.args.get("solo_activos", "false").lower()
@@ -135,6 +137,7 @@ def obtener_empleados():
 
 
 @empleado_bp.route("/<int:empleado_id>", methods=["GET"])
+@jwt_required()
 def consultar_empleado(empleado_id):
     try:
         empleado = obtener_empleado(empleado_id)
@@ -145,6 +148,7 @@ def consultar_empleado(empleado_id):
 
 
 @empleado_bp.route("/<int:empleado_id>", methods=["PATCH"])
+@jwt_required()
 def modificar_empleado(empleado_id):
     datos = request.get_json(silent=True)
 
@@ -187,6 +191,7 @@ def modificar_empleado(empleado_id):
 
 
 @empleado_bp.route("/<int:empleado_id>/desactivar", methods=["PATCH"])
+@jwt_required()
 def desactivar(empleado_id):
     try:
         empleado = desactivar_empleado(empleado_id)
@@ -204,6 +209,7 @@ def desactivar(empleado_id):
 
 
 @empleado_bp.route("/<int:empleado_id>/activar", methods=["PATCH"])
+@jwt_required()
 def activar(empleado_id):
     try:
         empleado = activar_empleado(empleado_id)

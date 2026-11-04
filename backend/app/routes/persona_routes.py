@@ -1,7 +1,7 @@
-
 from datetime import date
 
 from flask import Blueprint, jsonify, request
+from flask_jwt_extended import jwt_required
 
 from app.services.persona_service import (
     crear_persona,
@@ -53,6 +53,7 @@ def convertir_fecha(valor, campo):
 
 
 @persona_bp.route("", methods=["POST"])
+@jwt_required()
 def registrar_persona():
     datos = request.get_json(silent=True)
 
@@ -102,6 +103,7 @@ def registrar_persona():
 
 
 @persona_bp.route("", methods=["GET"])
+@jwt_required()
 def obtener_personas():
     termino = request.args.get("buscar")
 
@@ -121,6 +123,7 @@ def obtener_personas():
 
 
 @persona_bp.route("/<int:persona_id>", methods=["GET"])
+@jwt_required()
 def consultar_persona(persona_id):
     try:
         persona = obtener_persona(persona_id)
@@ -131,6 +134,7 @@ def consultar_persona(persona_id):
 
 
 @persona_bp.route("/<int:persona_id>", methods=["PATCH"])
+@jwt_required()
 def modificar_persona(persona_id):
     datos = request.get_json(silent=True)
 
