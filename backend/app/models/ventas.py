@@ -75,7 +75,7 @@ class Venta(db.Model):
     fecha_venta: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now(), index=True)
     canal: Mapped[str] = mapped_column(String(20), nullable=False, default="PISO")
     metodo_pago: Mapped[str] = mapped_column(String(30), nullable=False)
-    estado: Mapped[str] = mapped_column(String(30), nullable=False, default="COMPLETADA", index=True)
+    estado: Mapped[str] = mapped_column(String(30), nullable=False, default="BORRADOR", index=True)
     subtotal: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False, default=0)
     descuento_total: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False, default=0)
     impuesto_total: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False, default=0)

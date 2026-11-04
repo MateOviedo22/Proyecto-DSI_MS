@@ -18,8 +18,14 @@ TIPOS_MOVIMIENTO = {
 
 
 def validar_cantidad(cantidad):
-    if isinstance(cantidad, bool) or not isinstance(cantidad, int) or cantidad <= 0:
-        raise ValueError("La cantidad debe ser un entero mayor que cero.")
+    if (
+        isinstance(cantidad, bool)
+        or not isinstance(cantidad, int)
+        or cantidad <= 0
+    ):
+        raise ValueError(
+            "La cantidad debe ser un entero mayor que cero."
+        )
 
 
 def validar_costo(costo):
@@ -35,9 +41,65 @@ def validar_costo(costo):
         raise ValueError("El costo unitario no puede ser negativo.")
 
     if costo.as_tuple().exponent < -2:
-        raise ValueError("El costo unitario admite máximo dos decimales.")
+        raise ValueError(
+            "El costo unitario admite máximo dos decimales."
+        )
 
     return costo
+
+
+def validar_movimiento_no_duplicado(
+    tipo_movimiento,
+    detalle_recepcion_id=None,
+    detalle_venta_id=None,
+    detalle_devolucion_id=None
+):
+    relaciones = [
+        detalle_recepcion_id,
+        detalle_venta_id,
+        detalle_devolucion_id
+    ]
+
+    if sum(valor is not None for valor in relaciones) > 1:
+        raise ValueError(
+            "Un movimiento solo puede estar vinculado a un "
+            "proceso de origen."
+        )
+
+    if detalle_recepcion_id is not None:
+        condicion = (
+            MovimientoInventario.detalle_recepcion_id
+            == detalle_recepcion_id
+        )
+
+    elif detalle_venta_id is not None:
+        condicion = (
+            MovimientoInventario.detalle_venta_id
+            == detalle_venta_id
+        )
+
+    elif detalle_devolucion_id is not None:
+        condicion = (
+            MovimientoInventario.detalle_devolucion_id
+            == detalle_devolucion_id
+        )
+
+    else:
+        return
+
+    movimiento_existente = db.session.scalar(
+        select(MovimientoInventario.id)
+        .where(
+            condicion,
+            MovimientoInventario.tipo_movimiento == tipo_movimiento
+        )
+    )
+
+    if movimiento_existente is not None:
+        raise ValueError(
+            "Ya existe un movimiento de este tipo vinculado "
+            "al proceso indicado."
+        )
 
 
 def registrar_movimiento(
@@ -50,8 +112,12 @@ def registrar_movimiento(
     detalle_recepcion_id=None,
     detalle_venta_id=None,
     detalle_devolucion_id=None,
-    costo_unitario_aplicado=None
+    costo_unitario_aplicado=None,
+    confirmar_transaccion=True
 ):
+    if not isinstance(tipo_movimiento, str):
+        raise ValueError("El tipo de movimiento debe ser texto.")
+
     tipo_movimiento = tipo_movimiento.strip().upper()
 
     if tipo_movimiento not in TIPOS_MOVIMIENTO:
@@ -76,11 +142,15 @@ def registrar_movimiento(
             raise ValueError("El lote indicado no existe.")
 
         producto_del_lote = (
-            lote.detalle_recepcion.detalle_compra.producto_id
+            lote.detalle_recepcion
+            .detalle_compra
+            .producto_id
         )
 
         if producto_del_lote != producto_id:
-            raise ValueError("El lote no pertenece al producto indicado.")
+            raise ValueError(
+                "El lote no pertenece al producto indicado."
+            )
 
     try:
         existencia = db.session.scalar(
@@ -99,13 +169,25 @@ def registrar_movimiento(
             db.session.add(existencia)
             db.session.flush()
 
+        # Evita registrar dos veces el mismo movimiento
+        # para un mismo detalle de recepción, venta o devolución.
+        validar_movimiento_no_duplicado(
+            tipo_movimiento=tipo_movimiento,
+            detalle_recepcion_id=detalle_recepcion_id,
+            detalle_venta_id=detalle_venta_id,
+            detalle_devolucion_id=detalle_devolucion_id
+        )
+
         if tipo_movimiento in {"ENTRADA", "AJUSTE_ENTRADA"}:
             existencia.cantidad_actual += cantidad
 
         else:
             if existencia.cantidad_actual < cantidad:
                 raise ValueError(
-                    "No hay existencias suficientes para realizar esta salida."
+                    f"Existencias insuficientes para el producto "
+                    f"{producto.nombre}. Disponibles: "
+                    f"{existencia.cantidad_actual}; solicitadas: "
+                    f"{cantidad}."
                 )
 
             existencia.cantidad_actual -= cantidad
@@ -124,12 +206,16 @@ def registrar_movimiento(
         )
 
         db.session.add(movimiento)
-        db.session.commit()
+        db.session.flush()
+
+        if confirmar_transaccion:
+            db.session.commit()
 
         return movimiento
 
     except Exception:
-        db.session.rollback()
+        if confirmar_transaccion:
+            db.session.rollback()
         raise
 
 
@@ -140,7 +226,8 @@ def registrar_entrada(
     lote_id=None,
     detalle_recepcion_id=None,
     costo_unitario_aplicado=None,
-    motivo=None
+    motivo=None,
+    confirmar_transaccion=True
 ):
     return registrar_movimiento(
         producto_id=producto_id,
@@ -150,7 +237,8 @@ def registrar_entrada(
         lote_id=lote_id,
         detalle_recepcion_id=detalle_recepcion_id,
         costo_unitario_aplicado=costo_unitario_aplicado,
-        motivo=motivo
+        motivo=motivo,
+        confirmar_transaccion=confirmar_transaccion
     )
 
 
@@ -160,7 +248,8 @@ def registrar_salida(
     cantidad,
     detalle_venta_id=None,
     costo_unitario_aplicado=None,
-    motivo=None
+    motivo=None,
+    confirmar_transaccion=True
 ):
     return registrar_movimiento(
         producto_id=producto_id,
@@ -169,7 +258,8 @@ def registrar_salida(
         cantidad=cantidad,
         detalle_venta_id=detalle_venta_id,
         costo_unitario_aplicado=costo_unitario_aplicado,
-        motivo=motivo
+        motivo=motivo,
+        confirmar_transaccion=confirmar_transaccion
     )
 
 
@@ -186,7 +276,9 @@ def ajustar_existencia(
     tipo_ajuste = tipo_ajuste.strip().upper()
 
     if tipo_ajuste not in {"AJUSTE_ENTRADA", "AJUSTE_SALIDA"}:
-        raise ValueError("El ajuste debe ser AJUSTE_ENTRADA o AJUSTE_SALIDA.")
+        raise ValueError(
+            "El ajuste debe ser AJUSTE_ENTRADA o AJUSTE_SALIDA."
+        )
 
     return registrar_movimiento(
         producto_id=producto_id,
