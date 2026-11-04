@@ -5,6 +5,9 @@
 // (movimientos recientes).
 import { useState } from 'react';
 import { useData } from '../context/DataContext';
+import PageHeader from '../components/PageHeader';
+import EmptyState from '../components/EmptyState';
+import { MOTIVOS, fechaHora } from '../utils/formato';
 
 const MOTIVOS_ENTRADA = [
   { valor: 'compra', label: 'Recepción de compra' },
@@ -87,10 +90,10 @@ export default function IngresoInventario() {
   };
 
   return (
-    <div className="container p-4">
-      <h2>Movimientos de Inventario</h2>
+    <div className="container-fluid">
+      <PageHeader titulo="Movimientos de inventario" descripcion="Registra entradas y salidas (pérdidas, daños, ajustes). Las ventas y las recepciones de compra se registran solas." />
 
-      <form onSubmit={manejarEnvio} className="row g-3 bg-light p-4 rounded shadow-sm mb-4">
+      <form onSubmit={manejarEnvio} className="row g-3 panel m-0 mb-4">
         <div className="col-md-4">
           <label>Tipo de movimiento</label>
           <div className="btn-group d-flex" role="group">
@@ -147,7 +150,7 @@ export default function IngresoInventario() {
         </div>
         <div className="col-md-3">
           <label>Cantidad</label>
-          <input type="number" className="form-control" value={cantidad} onChange={(e) => setCantidad(e.target.value)} />
+          <input type="number" min="1" className="form-control" value={cantidad} onChange={(e) => setCantidad(e.target.value)} />
         </div>
         <div className="col-md-5">
           <label>Comentario (opcional)</label>
@@ -162,29 +165,30 @@ export default function IngresoInventario() {
         </div>
       </form>
 
-      <h5>Movimientos recientes</h5>
+      <h5 className="mb-2">Movimientos recientes</h5>
       <div className="table-responsive bg-white rounded shadow-sm">
         <table className="table table-sm align-middle mb-0">
           <thead className="table-light">
-            <tr><th>Fecha</th><th>Producto</th><th>Tipo</th><th>Motivo</th><th>Cantidad</th><th>Comentario</th></tr>
+            <tr><th>Fecha</th><th>Producto</th><th>Tipo</th><th>Motivo</th><th>Cantidad</th><th>Usuario</th><th>Comentario</th></tr>
           </thead>
           <tbody>
-            {movimientos.slice(0, 10).map((m) => (
+            {movimientos.slice(0, 15).map((m) => (
               <tr key={m.id}>
-                <td>{new Date(m.fecha).toLocaleString('es-NI')}</td>
+                <td className="text-nowrap">{fechaHora(m.fecha)}</td>
                 <td>{nombreProducto(m.productoId)}{nombreVariante(m.productoId, m.varianteId)}</td>
                 <td>
                   <span className={`badge ${m.tipo === 'entrada' ? 'bg-success' : 'bg-danger'}`}>
-                    {m.tipo}
+                    {m.tipo === 'entrada' ? 'Entrada' : 'Salida'}
                   </span>
                 </td>
-                <td>{m.motivo}</td>
+                <td>{MOTIVOS[m.motivo] || m.motivo}</td>
                 <td>{m.cantidad}</td>
+                <td>{m.usuario || '—'}</td>
                 <td className="text-muted">{m.comentario}</td>
               </tr>
             ))}
             {movimientos.length === 0 && (
-              <tr><td colSpan={6} className="text-center text-muted py-3">Sin movimientos registrados todavía.</td></tr>
+              <tr><td colSpan={7}><EmptyState icono="bi-arrow-left-right" titulo="Sin movimientos registrados todavía" /></td></tr>
             )}
           </tbody>
         </table>

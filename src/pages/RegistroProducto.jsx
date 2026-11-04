@@ -5,6 +5,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useParams, Link } from 'react-router-dom';
 import { useData } from '../context/DataContext';
+import PageHeader from '../components/PageHeader';
 
 const REGLAS_REDONDEO = [
   { valor: '0', label: 'Sin redondeo' },
@@ -23,6 +24,7 @@ const formularioVacio = {
   costoEnvio: '',
   precio: '',
   stockMinimo: '',
+  stockObjetivo: '',
   cantidadInicial: '',
   esElectronico: false,
 };
@@ -31,11 +33,11 @@ export default function RegistroProducto() {
   const { id } = useParams();
   const esEdicion = Boolean(id);
   const navigate = useNavigate();
-  const { productos, proveedores, categoriasExistentes, crearProducto, editarProducto } = useData();
+  const { productos, proveedores, categoriasExistentes, crearProducto, editarProducto, config } = useData();
 
   const [formulario, setFormulario] = useState(formularioVacio);
   const [variantes, setVariantes] = useState([]); // {id?, tipo, valor, stockActual, stockInicial}
-  const [reglaRedondeo, setReglaRedondeo] = useState('0');
+  const [reglaRedondeo, setReglaRedondeo] = useState(config.reglaRedondeo || '0');
   const [error, setError] = useState('');
   const [exito, setExito] = useState('');
 
@@ -52,6 +54,7 @@ export default function RegistroProducto() {
         costoEnvio: producto.costoEnvio ?? '',
         precio: producto.precio ?? '',
         stockMinimo: producto.stockMinimo ?? '',
+        stockObjetivo: producto.stockObjetivo ?? '',
         cantidadInicial: '',
         esElectronico: Boolean(producto.esElectronico),
       });
@@ -134,6 +137,7 @@ export default function RegistroProducto() {
       costoEnvio: Number(formulario.costoEnvio || 0),
       precio: Number(formulario.precio),
       stockMinimo: Number(formulario.stockMinimo || 0),
+      stockObjetivo: Number(formulario.stockObjetivo || 0),
       esElectronico: formulario.esElectronico,
       variantes: variantesFinales,
     };
@@ -153,14 +157,11 @@ export default function RegistroProducto() {
 
   return (
     <div className="container p-4">
-      <div className="d-flex justify-content-between align-items-center mb-3">
-        <h2>{esEdicion ? 'Editar Producto' : 'Registrar Producto'}</h2>
-        <Link to="/productos" className="btn btn-outline-secondary btn-sm">
-          <i className="bi bi-arrow-left me-1"></i>Volver al catálogo
-        </Link>
-      </div>
+      <PageHeader titulo={esEdicion ? 'Editar producto' : 'Registrar producto'} descripcion="Costos, precio, existencias y variantes en un solo lugar.">
+        <Link to="/productos" className="btn btn-outline-secondary"><i className="bi bi-arrow-left me-2"></i>Volver al catálogo</Link>
+      </PageHeader>
 
-      <form onSubmit={manejarEnvio} className="row g-3 bg-light p-4 rounded shadow-sm">
+      <form onSubmit={manejarEnvio} className="row g-3 panel m-0">
         <div className="col-md-6">
           <label>Nombre</label>
           <input type="text" className="form-control" name="nombre" value={formulario.nombre} onChange={manejarCambio} />
@@ -213,7 +214,7 @@ export default function RegistroProducto() {
           </div>
         </div>
 
-        <div className="col-12"><hr className="my-1" /><strong>Costos y precio</strong></div>
+        <div className="col-12"><hr className="my-1" /><h5 className="mt-2 mb-0">Costos y precio</h5></div>
 
         <div className="col-md-3">
           <label>Costo de adquisición</label>
@@ -250,7 +251,7 @@ export default function RegistroProducto() {
           </button>
         </div>
 
-        <div className="col-12"><hr className="my-1" /><strong>Inventario</strong></div>
+        <div className="col-12"><hr className="my-1" /><h5 className="mt-2 mb-0">Inventario</h5></div>
 
         {!esEdicion && (
           <div className="col-md-4">
@@ -270,7 +271,13 @@ export default function RegistroProducto() {
         )}
         <div className="col-md-4">
           <label>Stock mínimo (para alertas)</label>
-          <input type="number" className="form-control" name="stockMinimo" value={formulario.stockMinimo} onChange={manejarCambio} />
+          <input type="number" min="0" className="form-control" name="stockMinimo" value={formulario.stockMinimo} onChange={manejarCambio} />
+          <div className="form-text">Avisa cuando la existencia llega a esta cantidad o menos.</div>
+        </div>
+        <div className="col-md-4">
+          <label>Nivel de respaldo (stock objetivo)</label>
+          <input type="number" min="0" className="form-control" name="stockObjetivo" value={formulario.stockObjetivo} onChange={manejarCambio} />
+          <div className="form-text">Cantidad ideal para no quedarte sin existencias; se usa al sugerir compras.</div>
         </div>
 
         <div className="col-12">
@@ -281,7 +288,7 @@ export default function RegistroProducto() {
         <div className="col-12">
           <hr className="my-1" />
           <div className="d-flex justify-content-between align-items-center">
-            <strong>Variantes del producto (opcional)</strong>
+            <h5 className="mb-0">Variantes del producto (opcional)</h5>
             <button type="button" className="btn btn-sm btn-outline-primary" onClick={agregarVariante}>
               <i className="bi bi-plus-lg me-1"></i>Agregar variante
             </button>
