@@ -7,6 +7,20 @@ import Marca from '../components/Marca';
 const MAX_INTENTOS = 3;
 const SEGUNDOS_BLOQUEO = 30;
 
+// El bloqueo se guarda en localStorage para que no se pierda al recargar la página.
+const CLAVE_BLOQUEO = 'mm_bloqueo';
+
+const leerBloqueo = () => {
+  try {
+    const b = JSON.parse(localStorage.getItem(CLAVE_BLOQUEO));
+    return { intentos: Number(b?.intentos) || 0, hasta: Number(b?.hasta) || 0 };
+  } catch {
+    return { intentos: 0, hasta: 0 };
+  }
+};
+const guardarBloqueo = (intentos, hasta) => localStorage.setItem(CLAVE_BLOQUEO, JSON.stringify({ intentos, hasta }));
+const limpiarBloqueo = () => localStorage.removeItem(CLAVE_BLOQUEO);
+
 function LenteDecorativo() {
   return (
     <svg className="login-lente" viewBox="0 0 400 400" aria-hidden="true">
@@ -26,8 +40,8 @@ export default function Login() {
   const [usuario, setUsuario] = useState('');
   const [password, setPassword] = useState('');
   const [verPassword, setVerPassword] = useState(false);
-  const [intentos, setIntentos] = useState(0);
-  const [bloqueadoHasta, setBloqueadoHasta] = useState(0);
+  const [intentos, setIntentos] = useState(() => leerBloqueo().intentos);
+  const [bloqueadoHasta, setBloqueadoHasta] = useState(() => leerBloqueo().hasta);
   const [ahora, setAhora] = useState(Date.now());
   const [error, setError] = useState('');
   const [cargando, setCargando] = useState(false);
@@ -56,18 +70,22 @@ export default function Login() {
     const res = await verificarCredenciales(usuario, password);
     setCargando(false);
     if (res.ok) {
+      limpiarBloqueo();
       iniciarSesion(res.usuario);
       return;
     }
     const n = intentos + 1;
     setPassword('');
     if (n >= MAX_INTENTOS) {
+      const hasta = Date.now() + SEGUNDOS_BLOQUEO * 1000;
       setIntentos(0);
-      setBloqueadoHasta(Date.now() + SEGUNDOS_BLOQUEO * 1000);
+      setBloqueadoHasta(hasta);
+      guardarBloqueo(0, hasta);
       setAhora(Date.now());
       setError('');
     } else {
       setIntentos(n);
+      guardarBloqueo(n, 0);
       setError(`${res.error} Te quedan ${MAX_INTENTOS - n} intento(s).`);
     }
   };
