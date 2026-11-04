@@ -1,0 +1,37 @@
+{
+  "name": "motoman-frontend",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "start": "react-scripts start",
+    "build": "react-scripts build",
+    "test": "react-scripts test",
+    "eject": "react-scripts eject"
+  },
+  "dependencies": {
+    "bootstrap": "5.3.8",
+    "bootstrap-icons": "1.13.1",
+    "chart.js": "4.5.1",
+    "react": "18.3.1",
+    "react-chartjs-2": "5.3.1",
+    "react-dom": "18.3.1",
+    "react-router-dom": "6.28.2",
+    "react-scripts": "5.0.1",
+    "web-vitals": "^6.1.1"
+  },
+  "browserslist": {
+    "production": [
+      ">0.2%",
+      "not dead",
+      "not op_mini all"
+    ],
+    "development": [
+      "last 1 chrome version",
+      "last 1 firefox version",
+      "last 1 safari version"
+    ]
+  },
+  "devDependencies": {
+    "eslint-plugin-react-hooks": "^4.6.2"
+  }
+}
