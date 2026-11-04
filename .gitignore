@@ -1,0 +1,19 @@
+# Node.js
+node_modules/
+**/node_modules/
+
+# Python
+.venv/
+**/.venv/
+venv/
+__pycache__/
+**/__pycache__/
+*.py[cod]
+
+# Variables de entorno
+.env
+**/.env
+
+# Archivos del sistema
+.DS_Store
+Thumbs.db
