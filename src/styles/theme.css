@@ -433,3 +433,21 @@ a:hover { text-decoration: underline; }
   .mm-modal { border: 0; box-shadow: none; max-width: none !important; }
   .no-imprimir { display: none !important; }
 }
+
+/* ---------- Botón de menú dentro de la barra lateral + ojo único en la contraseña ---------- */
+.sidebar-marca { justify-content: space-between; }
+.sidebar-marca-texto { flex: 1; min-width: 0; }
+.sidebar-toggle {
+  flex: none; display: inline-grid; place-items: center; width: 38px; height: 38px; padding: 0; border: 0; border-radius: var(--mm-radio);
+  background: transparent; color: #9fb0c7; font-size: 1.3rem; transition: background-color 0.15s, color 0.15s;
+}
+.sidebar-toggle:hover { background: rgba(255, 255, 255, 0.08); color: #fff; }
+.sidebar.es-colapsado .sidebar-marca { flex-direction: column; justify-content: center; gap: 6px; padding: 1rem 0 0.5rem; }
+/* En escritorio el botón vive en la barra lateral; el de la barra superior solo se usa en celular */
+@media (min-width: 992px) { .topbar-izq > .btn-icono { display: none; } }
+@media (max-width: 991.98px) {
+  .sidebar.es-colapsado .sidebar-marca { flex-direction: row; justify-content: space-between; gap: 12px; padding: 1.2rem 1.15rem 1rem; }
+  .sidebar.es-colapsado .sidebar-marca-texto { display: flex; }
+}
+/* Edge muestra su propio ojo en los campos de contraseña: se oculta para dejar solo el de la aplicación */
+input::-ms-reveal, input::-ms-clear { display: none; }

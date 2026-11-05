@@ -86,7 +86,7 @@ function Aplicacion() {
 
   return (
     <div className={`app-shell ${colapsado ? 'sidebar-colapsado' : ''}`}>
-      <Sidebar colapsado={colapsado} movilAbierto={movilAbierto} onCerrarMovil={() => setMovilAbierto(false)} />
+      <Sidebar colapsado={colapsado} movilAbierto={movilAbierto} onCerrarMovil={() => setMovilAbierto(false)} onAlternar={alternarMenu} />
       <div className="app-columna">
         <Topbar onMenu={alternarMenu} onCerrarSesion={cerrarSesion} titulo={titulo} />
         <main className="app-main" id="contenido">
