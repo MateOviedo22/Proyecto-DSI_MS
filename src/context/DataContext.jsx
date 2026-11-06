@@ -14,6 +14,11 @@ import { generarSalt, hashConSalt, verificarConSalt } from '../utils/passwordHas
 import { puede, ROLES } from '../utils/permisos';
 import { diasEntre } from '../utils/formato';
 
+import {
+  cerrarSesionAPI,
+  obtenerPerfil,
+} from '../api/auth';
+
 const DataContext = createContext(null);
 
 seedIfEmpty('productos', seedProductos);
@@ -31,6 +36,7 @@ seedIfEmpty('config', seedConfig);
 
 const MAX_AUDITORIA = 2000;
 
+
 export function DataProvider({ children }) {
   const [productos, setProductos] = useState(() => getCollection('productos'));
   const [proveedores, setProveedores] = useState(() => getCollection('proveedores'));
@@ -44,7 +50,45 @@ export function DataProvider({ children }) {
   const [usuarios, setUsuarios] = useState(() => getCollection('usuarios'));
   const [auditoria, setAuditoria] = useState(() => getCollection('auditoria'));
   const [config, setConfig] = useState(() => getObject('config', seedConfig));
-  const [usuarioActualId, setUsuarioActualId] = useState(() => localStorage.getItem('motoman_sesion'));
+  const [usuarioBackend, setUsuarioBackend] = useState(null);
+  const [usuarioActualId, setUsuarioActualId] = useState(null);
+  const [cargandoSesion, setCargandoSesion] = useState(true);
+
+  useEffect(() => {
+    const validarSesion = async () => {
+      const token = localStorage.getItem('token');
+
+      if (!token) {
+        setUsuarioBackend(null);
+        setUsuarioActualId(null);
+        setCargandoSesion(false);
+        return;
+      }
+
+      try {
+        const respuesta = await obtenerPerfil();
+        const usuario = respuesta?.usuario;
+
+        if (!usuario) {
+          throw new Error('No se recibieron los datos del usuario.');
+        }
+
+        setUsuarioBackend(usuario);
+        setUsuarioActualId(usuario.id);
+        localStorage.setItem('usuario', JSON.stringify(usuario));
+
+      } catch (error) {
+        cerrarSesionAPI();
+        setUsuarioBackend(null);
+        setUsuarioActualId(null);
+
+      } finally {
+        setCargandoSesion(false);
+      }
+    };
+
+    validarSesion();
+  }, []);
 
   useEffect(() => saveCollection('productos', productos), [productos]);
   useEffect(() => saveCollection('proveedores', proveedores), [proveedores]);
@@ -58,16 +102,43 @@ export function DataProvider({ children }) {
   useEffect(() => saveCollection('usuarios', usuarios), [usuarios]);
   useEffect(() => saveCollection('auditoria', auditoria), [auditoria]);
   useEffect(() => saveCollection('config', config), [config]);
-  useEffect(() => {
-    if (usuarioActualId) localStorage.setItem('motoman_sesion', usuarioActualId);
-    else localStorage.removeItem('motoman_sesion');
-  }, [usuarioActualId]);
+  // useEffect(() => {
+  //   if (usuarioActualId) localStorage.setItem('motoman_sesion', usuarioActualId);
+  //   else localStorage.removeItem('motoman_sesion');
+  // }, [usuarioActualId]);
 
-  // Sesión activa y permisos
-  const usuarioActual = usuarios.find((u) => u.id === usuarioActualId && u.activo !== false) || null;
+  // Sesión activa y permisos (autenticación mediante backend)
+  const usuarioActual = usuarioBackend
+    ? {
+      ...usuarioBackend,
+      id: usuarioBackend.id,
+      nombreUsuario:
+        usuarioBackend.username ||
+        usuarioBackend.nombreUsuario ||
+        '',
+      nombreCompleto:
+        usuarioBackend.nombre_completo ||
+        usuarioBackend.nombreCompleto ||
+        usuarioBackend.username ||
+        usuarioBackend.nombreUsuario ||
+        '',
+      rol:
+        typeof usuarioBackend.rol === 'object'
+          ? usuarioBackend.rol?.nombre || ''
+          : usuarioBackend.nombre_rol ||
+          usuarioBackend.rol_nombre ||
+          usuarioBackend.rol ||
+          '',
+    }
+    : null;
+
   const usuarioRef = useRef(usuarioActual);
   usuarioRef.current = usuarioActual;
-  const tienePermiso = useCallback((modulo) => puede(usuarioActual?.rol, modulo, config.permisos), [usuarioActual, config.permisos]);
+
+  const tienePermiso = useCallback(
+    (modulo) => puede(usuarioActual?.rol, modulo, config.permisos),
+    [usuarioActual, config.permisos]
+  );
 
   // ---------------------------------------------------------------
   // Auditoría (RNF "Registro de operaciones" / "Conservación del historial")
@@ -659,13 +730,52 @@ export function DataProvider({ children }) {
     return { ok: true };
   };
 
+
+  // Inicio y cierre de sesión mediante JWT
   const iniciarSesion = (usuario) => {
-    registrarAuditoria('Acceso', 'Inicio de sesión', '', usuario);
-    setUsuarioActualId(usuario.id);
+    const usuarioNormalizado = {
+      ...usuario,
+      nombreUsuario:
+        usuario.username ||
+        usuario.nombreUsuario ||
+        '',
+      nombreCompleto:
+        usuario.nombre_completo ||
+        usuario.nombreCompleto ||
+        usuario.username ||
+        usuario.nombreUsuario ||
+        '',
+      rol:
+        typeof usuario.rol === 'object'
+          ? usuario.rol?.nombre || ''
+          : usuario.nombre_rol ||
+          usuario.rol_nombre ||
+          usuario.rol ||
+          '',
+    };
+
+    setUsuarioBackend(usuario);
+    setUsuarioActualId(usuario.id || null);
+
+    localStorage.setItem('usuario', JSON.stringify(usuario));
+    localStorage.removeItem('motoman_sesion');
+
+    registrarAuditoria(
+      'Acceso',
+      'Inicio de sesión',
+      '',
+      usuarioNormalizado
+    );
   };
+
   const cerrarSesion = () => {
     registrarAuditoria('Acceso', 'Cierre de sesión');
+
+    setUsuarioBackend(null);
     setUsuarioActualId(null);
+
+    cerrarSesionAPI();
+    localStorage.removeItem('motoman_sesion');
   };
 
   // ---------------------------------------------------------------
@@ -698,7 +808,12 @@ export function DataProvider({ children }) {
     garantias, verificarSerie, registrarGarantia, actualizarEstadoGarantia,
     usuarios, ROLES_DISPONIBLES, crearUsuario, editarUsuario, cambiarPasswordUsuario, darDeBajaUsuario, reactivarUsuario,
     verificarCredenciales, obtenerPreguntaSeguridad, recuperarContrasena,
-    usuarioActual, iniciarSesion, cerrarSesion, tienePermiso,
+    usuarioActual,
+    usuarioActualId,
+    cargandoSesion,
+    iniciarSesion,
+    cerrarSesion,
+    tienePermiso,
     auditoria, registrarAuditoria, exportarRespaldo, restaurarRespaldo,
   };
 

@@ -1,25 +1,36 @@
-// src/pages/Login.jsx
-// Cubre: RF-49 (inicio de sesión), RF-50 (recuperación de contraseña), RNF de seguridad.
+
 import { useEffect, useState } from 'react';
 import { useData } from '../context/DataContext';
+import { iniciarSesion as iniciarSesionAPI } from '../api/auth';
 import Marca from '../components/Marca';
 
 const MAX_INTENTOS = 3;
 const SEGUNDOS_BLOQUEO = 30;
-
-// El bloqueo se guarda en localStorage para que no se pierda al recargar la página.
 const CLAVE_BLOQUEO = 'mm_bloqueo';
 
+// El bloqueo se conserva aunque se recargue la página.
 const leerBloqueo = () => {
   try {
     const b = JSON.parse(localStorage.getItem(CLAVE_BLOQUEO));
-    return { intentos: Number(b?.intentos) || 0, hasta: Number(b?.hasta) || 0 };
+    return {
+      intentos: Number(b?.intentos) || 0,
+      hasta: Number(b?.hasta) || 0,
+    };
   } catch {
     return { intentos: 0, hasta: 0 };
   }
 };
-const guardarBloqueo = (intentos, hasta) => localStorage.setItem(CLAVE_BLOQUEO, JSON.stringify({ intentos, hasta }));
-const limpiarBloqueo = () => localStorage.removeItem(CLAVE_BLOQUEO);
+
+const guardarBloqueo = (intentos, hasta) => {
+  localStorage.setItem(
+    CLAVE_BLOQUEO,
+    JSON.stringify({ intentos, hasta })
+  );
+};
+
+const limpiarBloqueo = () => {
+  localStorage.removeItem(CLAVE_BLOQUEO);
+};
 
 function LenteDecorativo() {
   return (
@@ -35,82 +46,113 @@ function LenteDecorativo() {
 }
 
 export default function Login() {
-  const { verificarCredenciales, iniciarSesion, obtenerPreguntaSeguridad, recuperarContrasena } = useData();
-  const [modo, setModo] = useState('ingreso'); // ingreso | recuperar
+  const { iniciarSesion } = useData();
+
   const [usuario, setUsuario] = useState('');
   const [password, setPassword] = useState('');
   const [verPassword, setVerPassword] = useState(false);
+
   const [intentos, setIntentos] = useState(() => leerBloqueo().intentos);
   const [bloqueadoHasta, setBloqueadoHasta] = useState(() => leerBloqueo().hasta);
   const [ahora, setAhora] = useState(Date.now());
+
   const [error, setError] = useState('');
   const [cargando, setCargando] = useState(false);
 
-  // Recuperación
-  const [paso, setPaso] = useState(1);
-  const [pregunta, setPregunta] = useState('');
-  const [respuesta, setRespuesta] = useState('');
-  const [nueva, setNueva] = useState('');
-  const [repetir, setRepetir] = useState('');
-  const [exito, setExito] = useState('');
+  const segundosRestantes = Math.max(
+    0,
+    Math.ceil((bloqueadoHasta - ahora) / 1000)
+  );
 
-  const segundosRestantes = Math.max(0, Math.ceil((bloqueadoHasta - ahora) / 1000));
   const bloqueado = segundosRestantes > 0;
 
   useEffect(() => {
     if (!bloqueado) return undefined;
-    const t = setInterval(() => setAhora(Date.now()), 500);
-    return () => clearInterval(t);
+
+    const intervalo = setInterval(() => {
+      setAhora(Date.now());
+    }, 500);
+
+    return () => clearInterval(intervalo);
   }, [bloqueado]);
+
+  // Si el bloqueo termina, se limpia el registro de intentos.
+  useEffect(() => {
+    if (bloqueadoHasta && segundosRestantes === 0) {
+      limpiarBloqueo();
+      setIntentos(0);
+      setBloqueadoHasta(0);
+    }
+  }, [bloqueadoHasta, segundosRestantes]);
 
   const ingresar = async (e) => {
     e.preventDefault();
+
     if (bloqueado || cargando) return;
-    setCargando(true);
-    const res = await verificarCredenciales(usuario, password);
-    setCargando(false);
-    if (res.ok) {
-      limpiarBloqueo();
-      iniciarSesion(res.usuario);
+
+    if (!usuario.trim() || !password) {
+      setError('Ingresa tu usuario y contraseña.');
       return;
     }
-    const n = intentos + 1;
-    setPassword('');
-    if (n >= MAX_INTENTOS) {
-      const hasta = Date.now() + SEGUNDOS_BLOQUEO * 1000;
-      setIntentos(0);
-      setBloqueadoHasta(hasta);
-      guardarBloqueo(0, hasta);
-      setAhora(Date.now());
-      setError('');
-    } else {
-      setIntentos(n);
-      guardarBloqueo(n, 0);
-      setError(`${res.error} Te quedan ${MAX_INTENTOS - n} intento(s).`);
-    }
-  };
 
-  const abrirRecuperacion = () => {
-    setModo('recuperar'); setPaso(1); setError(''); setExito(''); setRespuesta(''); setNueva(''); setRepetir('');
-  };
-
-  const buscarPregunta = (e) => {
-    e.preventDefault();
-    const p = obtenerPreguntaSeguridad(usuario);
-    if (!p) return setError('No encontramos un usuario activo con ese nombre.');
-    setPregunta(p); setPaso(2); setError('');
-  };
-
-  const restablecer = async (e) => {
-    e.preventDefault();
-    if (nueva.length < 6) return setError('La nueva contraseña debe tener al menos 6 caracteres.');
-    if (nueva !== repetir) return setError('Las contraseñas no coinciden.');
     setCargando(true);
-    const res = await recuperarContrasena({ nombreUsuario: usuario, respuestaSeguridad: respuesta, nuevaContrasena: nueva });
-    setCargando(false);
-    if (!res.ok) return setError(res.error);
-    setExito('Contraseña actualizada. Ya puedes iniciar sesión.');
-    setModo('ingreso'); setPassword(''); setError('');
+    setError('');
+
+    try {
+      // 1. Solicitar autenticación al backend.
+      const respuesta = await iniciarSesionAPI({
+        username: usuario.trim(),
+        password,
+      });
+
+      // 2. Comprobar que el backend devolvió el usuario.
+      if (!respuesta?.usuario) {
+        throw new Error(
+          'El servidor no devolvió los datos del usuario.'
+        );
+      }
+
+      // 3. Limpiar el registro de intentos fallidos.
+      limpiarBloqueo();
+      setIntentos(0);
+      setBloqueadoHasta(0);
+      setPassword('');
+
+      // 4. Actualizar la sesión global de React.
+      iniciarSesion(respuesta.usuario);
+
+      // La aplicación puede detectar usuarioActual y mostrar el sistema.
+    } catch (err) {
+      const mensaje =
+        err.response?.data?.error ||
+        err.response?.data?.mensaje ||
+        err.response?.data?.message ||
+        err.message ||
+        'No fue posible iniciar sesión.';
+
+      const nuevoIntento = intentos + 1;
+
+      setPassword('');
+
+      if (nuevoIntento >= MAX_INTENTOS) {
+        const hasta = Date.now() + SEGUNDOS_BLOQUEO * 1000;
+
+        setIntentos(0);
+        setBloqueadoHasta(hasta);
+        guardarBloqueo(0, hasta);
+        setAhora(Date.now());
+        setError('');
+      } else {
+        setIntentos(nuevoIntento);
+        guardarBloqueo(nuevoIntento, 0);
+
+        setError(
+          `${mensaje} Te quedan ${MAX_INTENTOS - nuevoIntento} intento(s).`
+        );
+      }
+    } finally {
+      setCargando(false);
+    }
   };
 
   return (
@@ -120,91 +162,121 @@ export default function Login() {
           <div style={{ position: 'relative', zIndex: 1 }}>
             <Marca tamano={44} />
             <h1>MotoMan</h1>
-            <p>Gestión moderna de inventario y ventas para tu tienda de cámaras de acción y accesorios.</p>
+            <p>
+              Gestión moderna de inventario y ventas para tu tienda
+              de cámaras de acción y accesorios.
+            </p>
           </div>
+
           <ul className="login-puntos">
-            <li><i className="bi bi-box-seam"></i>Existencias al día, con alertas de stock bajo</li>
-            <li><i className="bi bi-upc-scan"></i>Trazabilidad por lote y número de serie</li>
-            <li><i className="bi bi-receipt"></i>Ventas en piso y en línea con factura</li>
+            <li>
+              <i className="bi bi-box-seam"></i>
+              Existencias al día, con alertas de stock bajo
+            </li>
+            <li>
+              <i className="bi bi-upc-scan"></i>
+              Trazabilidad por lote y número de serie
+            </li>
+            <li>
+              <i className="bi bi-receipt"></i>
+              Ventas en piso y en línea con factura
+            </li>
           </ul>
+
           <LenteDecorativo />
         </section>
 
         <section className="login-form">
-          {modo === 'ingreso' ? (
-            <form onSubmit={ingresar} noValidate>
-              <h2>Iniciar sesión</h2>
-              <p className="texto-suave mb-4">Ingresa con tu usuario y contraseña.</p>
+          <form onSubmit={ingresar} noValidate>
+            <h2>Iniciar sesión</h2>
 
-              {exito && <div className="alert alert-success" role="status">{exito}</div>}
+            <p className="texto-suave mb-4">
+              Ingresa con tu usuario y contraseña.
+            </p>
 
-              <div className="mb-3">
-                <label htmlFor="usuario">Usuario</label>
-                <input id="usuario" className="form-control" autoComplete="username" autoFocus value={usuario} onChange={(e) => setUsuario(e.target.value)} disabled={bloqueado} required />
+            <div className="mb-3">
+              <label htmlFor="usuario">Usuario</label>
+
+              <input
+                id="usuario"
+                type="text"
+                className="form-control"
+                autoComplete="username"
+                autoFocus
+                value={usuario}
+                onChange={(e) => {
+                  setUsuario(e.target.value);
+                  setError('');
+                }}
+                disabled={bloqueado || cargando}
+                required
+              />
+            </div>
+
+            <div className="mb-3">
+              <label htmlFor="password">Contraseña</label>
+
+              <div className="position-relative">
+                <input
+                  id="password"
+                  type={verPassword ? 'text' : 'password'}
+                  className="form-control pe-5"
+                  autoComplete="current-password"
+                  value={password}
+                  onChange={(e) => {
+                    setPassword(e.target.value);
+                    setError('');
+                  }}
+                  disabled={bloqueado || cargando}
+                  required
+                />
+
+                <button
+                  type="button"
+                  className="btn-icono login-ojo"
+                  onClick={() => setVerPassword((v) => !v)}
+                  aria-label={
+                    verPassword
+                      ? 'Ocultar contraseña'
+                      : 'Mostrar contraseña'
+                  }
+                  disabled={cargando}
+                >
+                  <i
+                    className={`bi ${
+                      verPassword ? 'bi-eye-slash' : 'bi-eye'
+                    }`}
+                  ></i>
+                </button>
               </div>
-              <div className="mb-3">
-                <label htmlFor="password">Contraseña</label>
-                <div className="position-relative">
-                  <input id="password" type={verPassword ? 'text' : 'password'} className="form-control pe-5" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} disabled={bloqueado} required />
-                  <button type="button" className="btn-icono login-ojo" onClick={() => setVerPassword((v) => !v)} aria-label={verPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}>
-                    <i className={`bi ${verPassword ? 'bi-eye-slash' : 'bi-eye'}`}></i>
-                  </button>
-                </div>
+            </div>
+
+            {bloqueado && (
+              <div className="alert alert-danger" role="alert">
+                Demasiados intentos fallidos. Vuelve a intentarlo en{' '}
+                {segundosRestantes} s.
               </div>
+            )}
 
-              {bloqueado && (
-                <div className="alert alert-danger" role="alert">
-                  Demasiados intentos fallidos. Vuelve a intentarlo en {segundosRestantes} s.
-                </div>
-              )}
-              {error && !bloqueado && <div className="alert alert-danger" role="alert">{error}</div>}
-
-              <button type="submit" className="btn btn-primary btn-lg w-100" disabled={bloqueado || cargando || !usuario || !password}>
-                {cargando ? 'Verificando…' : 'Iniciar sesión'}
-              </button>
-              <div className="text-center mt-3">
-                <button type="button" className="login-enlace" onClick={abrirRecuperacion}>¿Olvidaste tu contraseña?</button>
+            {error && !bloqueado && (
+              <div className="alert alert-danger" role="alert">
+                {error}
               </div>
-            </form>
-          ) : (
-            <form onSubmit={paso === 1 ? buscarPregunta : restablecer} noValidate>
-              <h2>Recuperar contraseña</h2>
-              <p className="texto-suave mb-4">{paso === 1 ? 'Escribe tu usuario para ver tu pregunta de seguridad.' : 'Responde tu pregunta y elige una nueva contraseña.'}</p>
+            )}
 
-              <div className="mb-3">
-                <label htmlFor="rec-usuario">Usuario</label>
-                <input id="rec-usuario" className="form-control" value={usuario} onChange={(e) => setUsuario(e.target.value)} disabled={paso === 2} autoFocus required />
-              </div>
-
-              {paso === 2 && (
-                <>
-                  <div className="mb-3">
-                    <label htmlFor="rec-resp">{pregunta}</label>
-                    <input id="rec-resp" className="form-control" value={respuesta} onChange={(e) => setRespuesta(e.target.value)} autoFocus required />
-                  </div>
-                  <div className="row g-2 mb-3">
-                    <div className="col-sm-6">
-                      <label htmlFor="rec-nueva">Nueva contraseña</label>
-                      <input id="rec-nueva" type="password" className="form-control" autoComplete="new-password" value={nueva} onChange={(e) => setNueva(e.target.value)} required />
-                    </div>
-                    <div className="col-sm-6">
-                      <label htmlFor="rec-rep">Repetir contraseña</label>
-                      <input id="rec-rep" type="password" className="form-control" autoComplete="new-password" value={repetir} onChange={(e) => setRepetir(e.target.value)} required />
-                    </div>
-                  </div>
-                </>
-              )}
-
-              {error && <div className="alert alert-danger" role="alert">{error}</div>}
-
-              <button type="submit" className="btn btn-primary btn-lg w-100" disabled={cargando || !usuario}>
-                {paso === 1 ? 'Continuar' : cargando ? 'Guardando…' : 'Guardar nueva contraseña'}
-              </button>
-              <div className="text-center mt-3">
-                <button type="button" className="login-enlace" onClick={() => { setModo('ingreso'); setError(''); }}>Volver a iniciar sesión</button>
-              </div>
-            </form>
-          )}
+            <button
+              type="submit"
+              className="btn btn-primary btn-lg w-100"
+              disabled={
+                bloqueado ||
+                cargando ||
+                !usuario.trim() ||
+                !password
+              }
+            >
+              {cargando ? 'Verificando…' : 'Iniciar sesión'}
+            </button>
+          </form>
         </section>
       </div>
     </div>

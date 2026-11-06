@@ -20,6 +20,25 @@ auth_bp = Blueprint(
 )
 
 
+def serializar_usuario(usuario):
+    """Devuelve los datos necesarios del usuario autenticado."""
+
+    nombre_completo = None
+
+    if usuario.empleado and usuario.empleado.persona:
+        nombre_completo = usuario.empleado.persona.nombre_completo
+
+    return {
+        "id": usuario.id,
+        "username": usuario.username,
+        "email": usuario.email,
+        "rol_id": usuario.rol_id,
+        "rol": usuario.rol.nombre if usuario.rol else None,
+        "nombre_completo": nombre_completo,
+        "activo": usuario.estado,
+    }
+
+
 @auth_bp.route("/login", methods=["POST"])
 def login():
     """Autentica al usuario y genera un JWT."""
@@ -52,18 +71,14 @@ def login():
         "mensaje": "Autenticación exitosa.",
         "access_token": access_token,
         "token_type": "Bearer",
-        "usuario": {
-            "id": usuario.id,
-            "username": usuario.username,
-            "rol_id": usuario.rol_id
-        }
+        "usuario": serializar_usuario(usuario)
     }), 200
 
 
 @auth_bp.route("/me", methods=["GET"])
 @jwt_required()
 def obtener_perfil():
-    """Obtiene los datos del usuario autenticado."""
+    """Obtener los datos del usuario autenticado."""
 
     usuario_id = int(get_jwt_identity())
     usuario = obtener_usuario(usuario_id)
@@ -74,9 +89,5 @@ def obtener_perfil():
         }), 401
 
     return jsonify({
-        "usuario": {
-            "id": usuario.id,
-            "username": usuario.username,
-            "rol_id": usuario.rol_id
-        }
+        "usuario": serializar_usuario(usuario)
     }), 200
