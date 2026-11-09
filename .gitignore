@@ -1,0 +1,36 @@
+
+# Dependencias de Node.js
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+
+# Archivos generados de React
+/build
+/dist
+
+# Entornos virtuales de Python
+backend/.venv/
+venv/
+.venv/
+
+# Python: caché y archivos compilados
+__pycache__/
+*.py[cod]
+*.pyo
+
+# Variables de entorno y credenciales
+.env
+.env.*
+!.env.example
+backend/.env
+backend/.env.*
+
+# Configuración local y pruebas
+.pytest_cache/
+.mypy_cache/
+
+# Archivos locales de editores y sistema
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
