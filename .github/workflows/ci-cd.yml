@@ -1,0 +1,132 @@
+name: MotoMAN - CI/CD
+
+on:
+  push:
+    branches:
+      - main
+      - DOCKERCICD
+
+  pull_request:
+    branches:
+      - main
+
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+env:
+  BACKEND_IMAGE: ghcr.io/mateoviedo22/proyecto-dsi_ms-backend
+  FRONTEND_IMAGE: ghcr.io/mateoviedo22/proyecto-dsi_ms-frontend
+
+jobs:
+
+  build-test-publish:
+    name: Construir, probar y publicar imágenes
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Descargar repositorio
+        uses: actions/checkout@v4
+
+      # -------------------------------
+      # BACKEND
+      # -------------------------------
+
+      - name: Construir imagen del backend
+        run: |
+          docker build \
+            -t $BACKEND_IMAGE:test \
+            ./backend
+
+      - name: Probar backend
+        run: |
+          docker run -d \
+            --name motoman-backend-test \
+            -p 5001:5000 \
+            -e PORT=5000 \
+            -e DATABASE_URL=postgresql+psycopg://ci:ci@127.0.0.1:5432/ci \
+            -e SECRET_KEY=ci-secret-key \
+            -e JWT_SECRET_KEY=ci-jwt-secret \
+            $BACKEND_IMAGE:test
+
+          for i in $(seq 1 15); do
+            if curl -fsS http://localhost:5001/; then
+              echo "Backend iniciado correctamente."
+              exit 0
+            fi
+            sleep 2
+          done
+
+          echo "Error: el backend no respondió."
+          docker logs motoman-backend-test
+          exit 1
+
+      # -------------------------------
+      # FRONTEND
+      # -------------------------------
+
+      - name: Construir imagen del frontend
+        run: |
+          docker build \
+            --build-arg REACT_APP_API_URL="${{ vars.REACT_APP_API_URL || 'http://127.0.0.1:5000/api' }}" \
+            -t $FRONTEND_IMAGE:test \
+            .
+
+      - name: Probar frontend
+        run: |
+          docker run -d \
+            --name motoman-frontend-test \
+            -p 8080:80 \
+            $FRONTEND_IMAGE:test
+
+          for i in $(seq 1 15); do
+            if curl -fsS http://localhost:8080/ | grep -q 'id="root"'; then
+              echo "Frontend iniciado correctamente."
+              exit 0
+            fi
+            sleep 2
+          done
+
+          echo "Error: el frontend no respondió correctamente."
+          docker logs motoman-frontend-test
+          exit 1
+
+      # -------------------------------
+      # PUBLICAR EN GHCR
+      # -------------------------------
+
+      - name: Iniciar sesión en GHCR
+        if: github.event_name != 'pull_request'
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Etiquetar imágenes
+        if: github.event_name != 'pull_request'
+        run: |
+          docker tag $BACKEND_IMAGE:test $BACKEND_IMAGE:latest
+          docker tag $BACKEND_IMAGE:test $BACKEND_IMAGE:sha-${GITHUB_SHA::7}
+
+          docker tag $FRONTEND_IMAGE:test $FRONTEND_IMAGE:latest
+          docker tag $FRONTEND_IMAGE:test $FRONTEND_IMAGE:sha-${GITHUB_SHA::7}
+
+      - name: Publicar backend en GHCR
+        if: github.event_name != 'pull_request'
+        run: |
+          docker push $BACKEND_IMAGE:latest
+          docker push $BACKEND_IMAGE:sha-${GITHUB_SHA::7}
+
+      - name: Publicar frontend en GHCR
+        if: github.event_name != 'pull_request'
+        run: |
+          docker push $FRONTEND_IMAGE:latest
+          docker push $FRONTEND_IMAGE:sha-${GITHUB_SHA::7}
+
+      - name: Limpiar contenedores de prueba
+        if: always()
+        run: |
+          docker rm -f motoman-backend-test motoman-frontend-test || true
