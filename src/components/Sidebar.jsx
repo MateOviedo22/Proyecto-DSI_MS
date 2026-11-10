@@ -31,7 +31,7 @@ const GRUPOS = [
   },
 ];
 
-export default function Sidebar({ colapsado, movilAbierto, onCerrarMovil }) {
+export default function Sidebar({ colapsado, movilAbierto, onCerrarMovil, onAlternar }) {
   const { tienePermiso, config } = useData();
 
   return (
@@ -44,6 +44,9 @@ export default function Sidebar({ colapsado, movilAbierto, onCerrarMovil }) {
             <strong>{config.nombreEmpresa || 'MotoMan'}</strong>
             <span>Inventario y ventas</span>
           </div>
+          <button type="button" className="sidebar-toggle" onClick={onAlternar} aria-label="Mostrar u ocultar menú" title="Mostrar u ocultar menú">
+            <i className="bi bi-list"></i>
+          </button>
         </div>
 
         <nav className="sidebar-nav">
