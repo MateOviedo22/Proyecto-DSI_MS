@@ -130,3 +130,18 @@ jobs:
         if: always()
         run: |
           docker rm -f motoman-backend-test motoman-frontend-test || true
+
+  deploy-render:
+    name: Desplegar servicios en Render
+    needs: build-test-publish
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Desplegar backend en Render
+        run: |
+          curl -sf -X POST "${{ secrets.RENDER_BACKEND_DEPLOY_HOOK_URL }}"
+
+      - name: Desplegar frontend en Render
+        run: |
+          curl -sf -X POST "${{ secrets.RENDER_FRONTEND_DEPLOY_HOOK_URL }}"
