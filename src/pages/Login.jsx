@@ -166,8 +166,7 @@ export default function Login() {
       <div className="login-caja">
         <section className="login-marca">
           <div style={{ position: 'relative', zIndex: 1 }}>
-            <Marca tamano={44} />
-            <h1>MotoMan</h1>
+            <Marca alto={190} className="login-logo" />
             <p>
               Gestión moderna de inventario y ventas para tu tienda
               de cámaras de acción y accesorios.

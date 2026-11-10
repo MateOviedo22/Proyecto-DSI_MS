@@ -1,13 +1,16 @@
 // src/components/Marca.jsx
-// Isotipo de MotoMan: un lente de cámara de acción dentro de un cuadrado redondeado.
-export default function Marca({ tamano = 36 }) {
+// Logo de MotoMan · Moto Adictos de Nicaragua. El archivo está en public/logo-motoman.png
+// (PNG con fondo transparente, que se ve bien sobre el azul del menú y sobre el blanco).
+// `alto` es la altura en píxeles; el ancho se calcula solo para no deformar la imagen.
+export default function Marca({ alto, tamano = 56, className = '' }) {
+  const altura = alto || tamano;
   return (
-    <svg width={tamano} height={tamano} viewBox="0 0 48 48" role="img" aria-label="MotoMan" className="marca-svg">
-      <rect width="48" height="48" rx="12" fill="#2563EB" />
-      <circle cx="24" cy="24" r="14" fill="none" stroke="#fff" strokeOpacity=".9" strokeWidth="3" />
-      <circle cx="24" cy="24" r="8" fill="none" stroke="#fff" strokeOpacity=".55" strokeWidth="2.5" />
-      <circle cx="24" cy="24" r="3.2" fill="#fff" />
-      <circle cx="35.5" cy="12.5" r="2" fill="#7FB0FF" />
-    </svg>
+    <img
+      src={`${process.env.PUBLIC_URL}/logo-motoman.png`}
+      alt="MotoMan · Moto Adictos de Nicaragua"
+      style={{ height: altura, width: 'auto' }}
+      className={`marca-logo ${className}`.trim()}
+      draggable="false"
+    />
   );
 }
