@@ -68,7 +68,7 @@ export default function Home() {
   return (
     <div className="container-fluid">
       <PageHeader
-        titulo={`${saludo()}, ${nombre}`}
+        titulo={`${saludo()}, ${nombre} :))))) felih`}
         descripcion={new Date().toLocaleDateString('es-NI', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
       >
         {tienePermiso('ventas') && (
