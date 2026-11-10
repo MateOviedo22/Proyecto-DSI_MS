@@ -6,8 +6,28 @@ from dotenv import load_dotenv
 load_dotenv()
 
 class Config:
-    SECRET_KEY=os.getenv("SECRET_KEY")
-    SQLALCHEMY_DATABASE_URI=os.getenv("DATABASE_URL")
+    SECRET_KEY = os.getenv("SECRET_KEY")
+
+    DATABASE_URL = os.getenv("DATABASE_URL")
+
+    # Adaptar la URL de Render al controlador psycopg 3.
+    if DATABASE_URL:
+        if DATABASE_URL.startswith("postgres://"):
+            DATABASE_URL = DATABASE_URL.replace(
+                "postgres://",
+                "postgresql+psycopg://",
+                1
+            )
+        elif DATABASE_URL.startswith("postgresql://"):
+            DATABASE_URL = DATABASE_URL.replace(
+                "postgresql://",
+                "postgresql+psycopg://",
+                1
+            )
+
+    SQLALCHEMY_DATABASE_URI = DATABASE_URL
+    
+    
     SQLALCHEMY_TRACK_MODIFICATIONS=False
     
     JWT_SECRET_KEY = os.getenv("JWT_SECRET_KEY")
